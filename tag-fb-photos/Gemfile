@@ -1,0 +1,6 @@
+source 'https://rubygems.org'
+
+gem 'koala'
+gem 'exifr'
+gem 'xmp'
+gem 'yaml'
