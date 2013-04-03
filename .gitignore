@@ -1,3 +1,4 @@
 .DS_Store
 *.swp
-config.yml
+tag-fb-photos/config.yml
+tag-fb-photos/userid_mapping.yml
