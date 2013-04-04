@@ -1,2 +1,7 @@
 oauth_token: ''
+appId:       ''
+appSecret:   ''
+callbackUrl: ''
+
 photos_dir:  ''
+album_id:    ''
