@@ -80,11 +80,15 @@ pics.each do |pic|
     tags    = xmp.dc.respond_to?('subject') ? xmp.dc.subject : []
     title   = xmp.dc.respond_to?('title')   ? xmp.dc.title : ''
     caption = xmp.dc.respond_to?('caption') ? xmp.dc.caption : ''
-    message = [title, caption].join("\n").strip
 
     puts "=> Found tags: #{tags.join ', '}" unless tags.nil?
     id_tags = userids.select {|k,v| tags.include? k}
+    other_tags = tags.reject {|k,v| userids.include? k}
     puts "=> Matching user ids: #{id_tags.keys.join ', '}"
+
+    has_tags = false if id_tags.empty?
+    tag_str = other_tags.empty? ? '' : "\ntags: #{other_tags.join(', ')}"
+    message = [title, caption, tag_str].join("\n").strip
   end
 
   # upload the picture
@@ -104,8 +108,8 @@ pics.each do |pic|
   # https://developers.facebook.com/docs/reference/api/photo/, tags#create
   if has_tags
     STDOUT.write "Tagging picture... "
-    tag_params = Hash[id_tags.map {|k,v| ['tag_uid', v]}]
-    resp = graph.put_object(photo_id, 'tags', tag_params)
+    tag_params = id_tags.map {|k,v| {'tag_uid' => v}}
+    resp = graph.put_connections(photo_id, 'tags', :tags => tag_params.to_json)
     STDOUT.puts resp ? "Success!" : "Failed!"
   else
     puts "No tags found in the picture.. Skipping tagging process"
