@@ -1,0 +1,7 @@
+ATT_USERNAME: <user>
+ATT_PASSWORD: <password>
+ATT_PASSCODE: <passcode>
+GMAIL_USERNAME: <acct@gmail.com>
+GMAIL_PASSWORD: <gmailpassword>
+MAIL_TO: <me@email.com>
+#MAIL_TO: ['one@example.com', 'two@example.com']
