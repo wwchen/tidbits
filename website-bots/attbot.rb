@@ -119,7 +119,7 @@ eos
 Mail.deliver do
          to CONFIG['MAIL_TO']
        from CONFIG['GMAIL_USERNAME']
-    subject spider.bill[:period]
+    subject "AT&T bill - #{spider.bill[:period]}"
    add_file :filename => 'bill.html', :content => File.read('bill.html')
    add_file :filename => 'bill.png',  :content => File.read('bill.png')
   html_part do
