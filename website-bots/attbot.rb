@@ -35,7 +35,7 @@ class Att
     @bill = {:period => '', :summary => [], :total => ''}
   end
 
-  def get_results
+  def login
     puts "Loading the ATT login portal"
     visit('/olam/passthroughAction.myworld?actionType=Manage')
     sleep 1
@@ -55,7 +55,9 @@ class Att
     if has_text? "The passcode should be the same code you use to access account information when you call 611"
       abort "There was a problem with the AT&T passcode for the account. Check and try again"
     end
+  end
 
+  def get_bill_summary
     puts "Opening bill details"
     click_link 'Bill Details'
 
@@ -98,7 +100,8 @@ Mail.defaults do
 end
 
 spider = Att.new
-spider.get_results
+spider.login
+spider.get_bill_summary
 
 num = spider.bill[:summary].count
 tot = spider.bill[:total].sub(/\$/, '').to_f
