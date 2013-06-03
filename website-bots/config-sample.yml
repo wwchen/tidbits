@@ -5,3 +5,10 @@ GMAIL_USERNAME: <acct@gmail.com>
 GMAIL_PASSWORD: <gmailpassword>
 MAIL_TO: <me@email.com>
 #MAIL_TO: ['one@example.com', 'two@example.com']
+
+BING_USERNAME: your_username
+BING_PASSWORD: your_password
+MIN_SEARCHES: 30
+MAX_SEARCHES: 50
+MIN_WAIT_SECS: 120
+MAX_WAIT_SECS: 300
