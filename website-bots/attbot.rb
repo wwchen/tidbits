@@ -1,23 +1,30 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
-require "capybara"
-require "capybara/dsl"
-require "capybara-webkit"
 require 'nokogiri'
 require 'yaml'
 require 'mail'
-Capybara.app_host = "https://www.att.com"
-Capybara.current_driver = :webkit
-Capybara.default_wait_time = 5
 
-# place code below in features/support/headless.rb
-if Capybara.current_driver == :webkit
-  require 'headless'
-  headless = Headless.new
-  headless.start
-  at_exit do
-    headless.destroy
+USE_CACHE = true
+DEBUG = false
+
+unless USE_CACHE
+  require "capybara"
+  require "capybara/dsl"
+  require "capybara-webkit"
+
+  Capybara.app_host = "https://www.att.com"
+  Capybara.current_driver = :webkit
+  Capybara.default_wait_time = 5
+
+  # place code below in features/support/headless.rb
+  if Capybara.current_driver == :webkit
+    require 'headless'
+    headless = Headless.new
+    headless.start
+    at_exit do
+      headless.destroy
+    end
   end
 end
 
@@ -28,20 +35,41 @@ class String
   def normalize
     return self.gsub(/[[:space:]]/,' ').gsub(/\u00e2\u0088\u0092/, '-').strip
   end
+  def strip_to_f
+    self.gsub(/[^0-9\.]/, '').to_f
+  end
+end
+
+class Hash
+  def first_rkey(search)
+    search = Regexp.new(search.to_s) unless search.is_a? Regexp
+    return keys.detect { |k| k =~ search }
+  end
+
+  def has_rkey?(search)
+    return !!first_rkey(search)
+  end
 end
 
 ##
 # Grabs the AT&T bill summary
 ##
 class Att
-  include Capybara::DSL
+  include Capybara::DSL if USE_CACHE
   attr_accessor :bill
   def initialize
     @bill = {:period => '', :summary => [], :total => ''}
+    @bill_json = {}
+    @bill_html = nil
+    @bill_totals = {}
     @is_logged_in = false
   end
 
   def login
+    if USE_CACHE
+      STDERR.puts "Using cache, so faking login.. Logged in!"
+      return
+    end
     puts "Loading the ATT login portal"
     visit('/olam/passthroughAction.myworld?actionType=Manage')
     sleep 1
@@ -65,6 +93,10 @@ class Att
   end
 
   def get_bill_summary
+    if USE_CACHE
+      STDERR.puts "Using cache, so faking getting the bill summary.. Fetched!"
+      return
+    end
     login unless @is_logged_in
     puts "Opening bill details"
     click_link 'Bill Details'
@@ -99,9 +131,9 @@ class Att
     json = {}
     rows = element.xpath(".//tr")
     rows.each do |row|
-      col = row.xpath(".//td").map { |x| x.text.normalize }
-      col.reject! { |x| x.empty? }
-      json[col[0]] = col[1] if col[0] and col[1]
+      cols = row.xpath(".//td").map { |x| x.text.normalize }
+      cols.delete_if { |x| x.empty? }
+      json[cols[0]] = cols[-1] if cols.count > 1
     end
     return json
   end
@@ -109,34 +141,124 @@ class Att
   # parse the bill.html
   def parse
     #get_bill_summary unless @bill_html
-    doc = Nokogiri::HTML(open(@bill_html))
-    #doc = Nokogiri::HTML(open('bill.html'))
-    summary = {}
+    bill = open('bill.html') if USE_CACHE
+    bill = @bill_html unless USE_CACHE
+    doc = Nokogiri::HTML(bill)
+    @bill_json = {}
     # header text with name + phone number
     accounts = doc.xpath("//h3[@class='CTNName']")
     accounts.each do |account|
-      number = account.text.match(/\d{3}-\d{3}-\d{4}/)[0]
-      summary[number] = {}
+      name, number, total = account.text.match(/(.*)(\d{3}-\d{3}-\d{4}).*(\$[\d\.]+)/)[1,3].map { |x| x.normalize }
+      @bill_json[number] = { "Total" => total, "Name" => name }
 
       # find the main category breakdowns
       categories = account.parent.next.css("h3.categoryLabel")
       categories.each do |category|
         title = category.text.normalize
         category = category.parent.next
-        summary[number][title] = {}
+        @bill_json[number][title] = {}
 
-        subcategories = category.css('h4')
+        subcategories = category.css('h4') # TODO code cleanup.. reiteration of categories again
         subcategories.each do |subcategory|
           subtitle = subcategory.text.normalize
           subcategory = subcategory.parent.next
-          summary[number][title][subtitle] = table_to_json(subcategory)
+          @bill_json[number][title][subtitle] = table_to_json(subcategory)
           subcategory.remove
         end
 
-        summary[number][title].merge! table_to_json(category)
+        @bill_json[number][title].merge! table_to_json(category)
       end
     end
-    return summary
+    return @bill_json
+  end
+
+  # helper
+  def get_total_entry(key, value)
+    return value.first_rkey("Total " + key.split(' ')[0])
+  end
+  def get_bill_totals
+    # assuming we have a bill.json
+    @bill_totals = {}
+
+  end
+
+  # TODO add the national discount in
+  def rebalance_bill
+    total_familytalk = 0
+    num_lines = @bill_json.keys.count
+    @bill_json.each do |line, charges|
+      # get the monthly voice charges
+      monthly_charge = charges.first_rkey /Monthly Charges/i
+      next unless monthly_charge # FIXME raise error
+      familytalk = charges[monthly_charge].first_rkey /FamilyTalk/i
+      next unless familytalk # FIXME
+      price = charges[monthly_charge][familytalk]
+      total_familytalk += price.strip_to_f
+
+      # double check on the math
+      # get the totals of all the sections and add against the 'total'
+      sections_total = 0
+      account_total = charges['Total'].strip_to_f
+      charges.each do |k,section|
+        if section.is_a? Hash
+          key = section.first_rkey("Total " + k.split(' ')[0])
+          section_total = section[key].strip_to_f
+          sections_total += section_total
+          puts "%s's %s: %s" % [line, k.sub(/ - .*/,''), section_total] if DEBUG
+        end
+      end
+      # given that the calculated difference is less than five cents, don't raise an error
+      if DEBUG
+        puts "%s's sections total: %s" % [line, sections_total]
+        puts "%s's total: %s" % [line, account_total]
+        puts "%s's calculated difference in total: %s" % [line, (account_total-sections_total)]
+      end
+      difference = (account_total - sections_total).abs
+      if difference > 0.05
+        # FIXME raise error
+        STDERR.puts "WRONG WRONG WRONG. Calculated difference for %s is over five cents" % line
+      end
+
+      puts "%s's total: $%0.2s" % [line, account_total]
+    end
+
+    if DEBUG
+      puts "total family talk: $%0.2f" % total_familytalk
+      puts "average family talk: $%0.2f" % (total_familytalk/num_lines)
+    end
+    puts "average family talk: $%0.2f" % (total_familytalk/num_lines)
+
+
+
+
+
+
+    @bill_json.each do |line, charges|
+      # get the monthly voice charges
+      monthly_charge = charges.first_rkey /Monthly Charges/i
+      familytalk = charges[monthly_charge].first_rkey /FamilyTalk/i
+      price = charges[monthly_charge][familytalk].strip_to_f
+      account_total = charges['Total'].strip_to_f
+
+      puts "======= %s =========" % line
+      puts "monthly charge: $%0.2f" % price
+      puts "total: $%0.2f" % account_total
+
+      avg = (total_familytalk/num_lines)
+      if price > avg
+        delta = price - avg
+        price = avg
+        account_total -= delta
+      else
+        delta = avg - price
+        price = avg
+        account_total += delta
+      end
+      
+      puts "new monthly charge: $%0.2f" % (price)
+      puts "new total: $%0.2f" % account_total
+      puts "==============================" % line
+    end
   end
 
 end
@@ -160,39 +282,40 @@ spider = Att.new
 spider.login
 spider.get_bill_summary
 data = JSON.pretty_generate spider.parse
+spider.rebalance_bill
 
 File.open('bill.json', 'w') { |f| f.write data }
 
-num = spider.bill[:summary].count
-tot = spider.bill[:total].sub(/\$/, '').to_f
-email = <<-eos
-<p>The information below is retrieved on #{Time.now.strftime "%A %B %-m, %Y, %I:%M %p"} by logging onto AT&T online portal.</p>
-<p>Attached is the bill summary in full details. Use it to verify the validity of all information here</p>
-<p>Transfer money via <a href='https://bankofamerica.com'>Bank of America</a></p>
-<br />
-
-<table>
-<tr><td colspan=3>#{spider.bill[:period]}</td></tr>
-#{str=''; spider.bill[:summary].each { |i| str += "<tr><td>" + i.join("</td><td>") + "</td></tr>" }; str}
-<tr><td colspan=2><strong>Total</strong></td><td>#{spider.bill[:total]}</td></tr>
-</table>
-Dividing the bill by #{num}, each person pays <strong>$#{tot/num}</strong>
-
-The raw data:
-<pre>
-#{data}
-</pre>
-eos
-
-Mail.deliver do
-         to CONFIG['MAIL_TO']
-       from CONFIG['GMAIL_USERNAME']
-    subject "AT&T bill - #{spider.bill[:period]}"
-   add_file :filename => 'bill.html', :content => File.read('bill.html')
-   add_file :filename => 'bill.png',  :content => File.read('bill.png')
-  html_part do
-    content_type 'text/html; charset=UTF-8'
-    body         email
-  end
-end
-
+# num = spider.bill[:summary].count
+# tot = spider.bill[:total].strip_to_f
+# email = <<-eos
+# <p>The information below is retrieved on #{Time.now.strftime "%A %B %-m, %Y, %I:%M %p"} by logging onto AT&T online portal.</p>
+# <p>Attached is the bill summary in full details. Use it to verify the validity of all information here</p>
+# <p>Transfer money via <a href='https://bankofamerica.com'>Bank of America</a></p>
+# <br />
+# 
+# <table>
+# <tr><td colspan=3>#{spider.bill[:period]}</td></tr>
+# #{str=''; spider.bill[:summary].each { |i| str += "<tr><td>" + i.join("</td><td>") + "</td></tr>" }; str}
+# <tr><td colspan=2><strong>Total</strong></td><td>#{spider.bill[:total]}</td></tr>
+# </table>
+# Dividing the bill by #{num}, each person pays <strong>$#{tot/num}</strong>
+# 
+# The raw data:
+# <pre>
+# #{data}
+# </pre>
+# eos
+# 
+# Mail.deliver do
+#          to CONFIG['MAIL_TO']
+#        from CONFIG['GMAIL_USERNAME']
+#     subject "AT&T bill - #{spider.bill[:period]}"
+#    add_file :filename => 'bill.html', :content => File.read('bill.html')
+#    add_file :filename => 'bill.png',  :content => File.read('bill.png')
+#   html_part do
+#     content_type 'text/html; charset=UTF-8'
+#     body         email
+#   end
+# end
+# 
