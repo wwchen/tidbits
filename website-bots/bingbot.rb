@@ -10,6 +10,7 @@ require "yaml"
 Capybara.run_server = false
 Capybara.app_host = "http://www.bing.com"
 Capybara.current_driver = :webkit
+Capybara.headers = { "User-Agent" => "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.64 Safari/537.31" }
 Capybara.default_wait_time = 5
 ####Uncomment for and comment out Capybara.current_driver = :webkit for testing
 #Capybara.current_driver = :selenium 
