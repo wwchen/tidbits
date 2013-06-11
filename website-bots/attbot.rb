@@ -4,6 +4,7 @@ require 'rubygems'
 require "capybara"
 require "capybara/dsl"
 require "capybara-webkit"
+require 'nokogiri'
 require 'yaml'
 require 'mail'
 Capybara.app_host = "https://www.att.com"
@@ -13,10 +14,8 @@ Capybara.default_wait_time = 5
 # place code below in features/support/headless.rb
 if Capybara.current_driver == :webkit
   require 'headless'
-
   headless = Headless.new
   headless.start
-
   at_exit do
     headless.destroy
   end
@@ -24,6 +23,12 @@ end
 
 # read passwords from a config file
 CONFIG = YAML.load_file(File.join(File.dirname(File.expand_path(__FILE__)),"config.yml")) unless defined? CONFIG
+
+class String
+  def normalize
+    return self.gsub(/[[:space:]]/,' ').gsub(/\u00e2\u0088\u0092/, '-').strip
+  end
+end
 
 ##
 # Grabs the AT&T bill summary
@@ -33,6 +38,7 @@ class Att
   attr_accessor :bill
   def initialize
     @bill = {:period => '', :summary => [], :total => ''}
+    @is_logged_in = false
   end
 
   def login
@@ -55,9 +61,11 @@ class Att
     if has_text? "The passcode should be the same code you use to access account information when you call 611"
       abort "There was a problem with the AT&T passcode for the account. Check and try again"
     end
+    @is_logged_in = true
   end
 
   def get_bill_summary
+    login unless @is_logged_in
     puts "Opening bill details"
     click_link 'Bill Details'
 
@@ -81,6 +89,54 @@ class Att
     visit '/pmt/jsp/titan/wireless/billPay-billSummary-printView.jsp?tooltip=no'
     save_page 'bill.html'
     save_screenshot 'bill.png'
+
+    # put the html in a class variable
+    @bill_html = open 'bill.html'
+  end
+
+  # find all table rows and convert to json
+  def table_to_json(element)
+    json = {}
+    rows = element.xpath(".//tr")
+    rows.each do |row|
+      col = row.xpath(".//td").map { |x| x.text.normalize }
+      col.reject! { |x| x.empty? }
+      json[col[0]] = col[1] if col[0] and col[1]
+    end
+    return json
+  end
+
+  # parse the bill.html
+  def parse
+    #get_bill_summary unless @bill_html
+    doc = Nokogiri::HTML(open(@bill_html))
+    #doc = Nokogiri::HTML(open('bill.html'))
+    summary = {}
+    # header text with name + phone number
+    accounts = doc.xpath("//h3[@class='CTNName']")
+    accounts.each do |account|
+      number = account.text.match(/\d{3}-\d{3}-\d{4}/)[0]
+      summary[number] = {}
+
+      # find the main category breakdowns
+      categories = account.parent.next.css("h3.categoryLabel")
+      categories.each do |category|
+        title = category.text.normalize
+        category = category.parent.next
+        summary[number][title] = {}
+
+        subcategories = category.css('h4')
+        subcategories.each do |subcategory|
+          subtitle = subcategory.text.normalize
+          subcategory = subcategory.parent.next
+          summary[number][title][subtitle] = table_to_json(subcategory)
+          subcategory.remove
+        end
+
+        summary[number][title].merge! table_to_json(category)
+      end
+    end
+    return summary
   end
 
 end
@@ -99,9 +155,13 @@ Mail.defaults do
   }
 end
 
+
 spider = Att.new
 spider.login
 spider.get_bill_summary
+data = JSON.pretty_generate spider.parse
+
+File.open('bill.json', 'w') { |f| f.write data }
 
 num = spider.bill[:summary].count
 tot = spider.bill[:total].sub(/\$/, '').to_f
@@ -117,6 +177,11 @@ email = <<-eos
 <tr><td colspan=2><strong>Total</strong></td><td>#{spider.bill[:total]}</td></tr>
 </table>
 Dividing the bill by #{num}, each person pays <strong>$#{tot/num}</strong>
+
+The raw data:
+<pre>
+#{data}
+</pre>
 eos
 
 Mail.deliver do
