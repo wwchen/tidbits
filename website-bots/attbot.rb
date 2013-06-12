@@ -4,6 +4,7 @@ require 'rubygems'
 require 'nokogiri'
 require 'yaml'
 require 'mail'
+require 'json'
 
 USE_CACHE = true
 DEBUG = false
@@ -26,6 +27,7 @@ unless USE_CACHE
       headless.destroy
     end
   end
+  include Capybara::DSL
 end
 
 # read passwords from a config file
@@ -55,7 +57,7 @@ end
 # Grabs the AT&T bill summary
 ##
 class Att
-  include Capybara::DSL if USE_CACHE
+  
   attr_accessor :bill
   def initialize
     @bill = {:period => '', :summary => [], :total => ''}
@@ -65,6 +67,43 @@ class Att
     @is_logged_in = false
   end
 
+  #
+  # private helper
+  def get_total(arg)
+    level, hash = arg
+    totals = {}
+    hash.each do |k, v|
+      if v.is_a? Hash
+        subtotal = get_total([level, v])
+        if subtotal[0] >= 1
+          level = [level, subtotal[0]].max
+          total = v.first_rkey("Total " + k.split(' ')[0])
+          totals[k] = {}
+          totals[k].merge! subtotal[1]
+          totals[k]["Total"] = v[total] unless total.nil?
+        end
+      else
+        level = 0
+      end
+    end
+    return [level+1, totals]
+  end
+
+  # find all table rows and convert to json
+  def table_to_json(element)
+    json = {}
+    rows = element.xpath(".//tr")
+    rows.each do |row|
+      cols = row.xpath(".//td").map { |x| x.text.normalize }
+      cols.delete_if { |x| x.empty? }
+      json[cols[0]] = cols[-1] if cols.count > 1
+    end
+    return json
+  end
+  private :get_total, :table_to_json
+
+  # 
+  # public
   def login
     if USE_CACHE
       STDERR.puts "Using cache, so faking login.. Logged in!"
@@ -126,18 +165,6 @@ class Att
     @bill_html = open 'bill.html'
   end
 
-  # find all table rows and convert to json
-  def table_to_json(element)
-    json = {}
-    rows = element.xpath(".//tr")
-    rows.each do |row|
-      cols = row.xpath(".//td").map { |x| x.text.normalize }
-      cols.delete_if { |x| x.empty? }
-      json[cols[0]] = cols[-1] if cols.count > 1
-    end
-    return json
-  end
-
   # parse the bill.html
   def parse
     #get_bill_summary unless @bill_html
@@ -172,17 +199,12 @@ class Att
     return @bill_json
   end
 
-  # helper
-  def get_total_entry(key, value)
-    return value.first_rkey("Total " + key.split(' ')[0])
-  end
   def get_bill_totals
-    # assuming we have a bill.json
-    @bill_totals = {}
-
+    return get_total([0, @bill_json])[1]
   end
 
   # TODO add the national discount in
+  # FIXME deprecate?
   def rebalance_bill
     total_familytalk = 0
     num_lines = @bill_json.keys.count
@@ -260,7 +282,6 @@ class Att
       puts "==============================" % line
     end
   end
-
 end
 
 ##
@@ -283,6 +304,7 @@ spider.login
 spider.get_bill_summary
 data = JSON.pretty_generate spider.parse
 spider.rebalance_bill
+puts spider.get_bill_totals.to_json
 
 File.open('bill.json', 'w') { |f| f.write data }
 
