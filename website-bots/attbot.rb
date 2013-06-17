@@ -8,6 +8,7 @@ require 'json'
 
 USE_CACHE = true
 DEBUG = false
+SEND_EMAIL = true
 
 unless USE_CACHE
   require "capybara"
@@ -39,6 +40,9 @@ class String
   end
   def strip_to_f
     self.gsub(/[^-0-9\.]/, '').to_f
+  end
+  def titleize
+    self.split(' ').map(&:capitalize).join(' ')
   end
 end
 
@@ -77,8 +81,7 @@ end
 # Grabs the AT&T bill summary
 ##
 class Att
-  
-  attr_accessor :bill
+  attr_accessor :bill, :bill_json
   def initialize
     @bill = {:period => '', :summary => [], :total => ''}
     @bill_json = {}
@@ -198,7 +201,7 @@ class Att
     accounts = doc.xpath("//h3[@class='CTNName']")
     accounts.each do |account|
       name, number, total = account.text.match(/(.*)(\d{3}-\d{3}-\d{4}).*(\$[\d\.]+)/)[1,3].map { |x| x.normalize }
-      @bill_json[number] = { "Total" => total, "Name" => name }
+      @bill_json[number] = { "Total" => total, "Name" => name.titleize }
 
       # find the main category breakdowns
       categories = account.parent.next.css("h3.categoryLabel")
@@ -286,6 +289,7 @@ class Att
       end
     end
 
+    @bill_json = totals
   end
 
   # TODO add the national discount in
@@ -403,37 +407,47 @@ class Att
   end
 end
 
-##
-# configuration to send emails
-##
-Mail.defaults do
-  delivery_method :smtp, {
-    :address              => "smtp.gmail.com",
-    :port                 => 587,
-    :user_name            => CONFIG['GMAIL_USERNAME'],
-    :password             => CONFIG['GMAIL_PASSWORD'],
-    :authentication       => 'plain',
-    :enable_starttls_auto => true
-  }
-end
 
 
 spider = Att.new
 spider.login
 spider.get_bill_summary
-data = JSON.pretty_generate spider.parse
-spider.rebalance_bill2
-#puts spider.get_bill_totals.to_json
+spider.parse
+spider.rebalance_bill
 
-File.open('bill.json', 'w') { |f| f.write data }
+File.open('bill.json', 'w') { |f| f.write JSON.pretty_generate(spider.bill_json) }
 
-# num = spider.bill[:summary].count
-# tot = spider.bill[:total].strip_to_f
-# email = <<-eos
-# <p>The information below is retrieved on #{Time.now.strftime "%A %B %-m, %Y, %I:%M %p"} by logging onto AT&T online portal.</p>
-# <p>Attached is the bill summary in full details. Use it to verify the validity of all information here</p>
-# <p>Transfer money via <a href='https://bankofamerica.com'>Bank of America</a></p>
-# <br />
+header_strings = []
+html_strings = []
+html = ""
+spider.bill_json.each do |line, charges|
+  html += "<h3>%s - %s</h3>" % [line, charges["Name"]]
+  if charges.is_a? Hash
+    html += "<table>"
+    charges.each do |section, summary|
+      next unless summary.is_a? Hash
+      html += "<tr>"
+      html += "<td>%s &nbsp;</td>" % section
+      html += "<td>%s &nbsp;</td>" % summary["Total"]
+      html += "<td>%s</td>"        % (summary["New total"] || summary["Total"])
+      html += "</tr>"
+    end
+  end
+  html += "<tr>"
+  html += "<td>%s</td>"         % "Bill Total"
+  html += "<td>%s</td>"         % charges["Total"]
+  html += "<td><b>%s</b></td>"  % charges["New total"]
+  html += "</tr></table>"
+end
+
+email = <<-eos
+<p>The information below is retrieved on #{Time.now.strftime "%A %B %-m, %Y, %I:%M %p"} by logging onto AT&T online portal.</p>
+<p>Attached is the bill summary in full details. Use it to verify the validity of all information here</p>
+<p>Transfer money via <a href='https://bankofamerica.com'>Bank of America</a></p>
+<br />
+eos
+email += html
+puts email
 # 
 # <table>
 # <tr><td colspan=3>#{spider.bill[:period]}</td></tr>
@@ -447,16 +461,34 @@ File.open('bill.json', 'w') { |f| f.write data }
 # #{data}
 # </pre>
 # eos
-# 
-# Mail.deliver do
-#          to CONFIG['MAIL_TO']
-#        from CONFIG['GMAIL_USERNAME']
-#     subject "AT&T bill - #{spider.bill[:period]}"
-#    add_file :filename => 'bill.html', :content => File.read('bill.html')
-#    add_file :filename => 'bill.png',  :content => File.read('bill.png')
-#   html_part do
-#     content_type 'text/html; charset=UTF-8'
-#     body         email
-#   end
-# end
-# 
+
+
+
+
+if SEND_EMAIL
+  ##
+  # configuration to send emails
+  ##
+  Mail.defaults do
+    delivery_method :smtp, {
+      :address              => "smtp.gmail.com",
+      :port                 => 587,
+      :user_name            => CONFIG['GMAIL_USERNAME'],
+      :password             => CONFIG['GMAIL_PASSWORD'],
+      :authentication       => 'plain',
+      :enable_starttls_auto => true
+    }
+  end
+  Mail.deliver do
+           to CONFIG['MAIL_TO']
+         from CONFIG['GMAIL_USERNAME']
+      subject "AT&T bill - #{spider.bill[:period]}"
+     add_file :filename => 'bill.html', :content => File.read('bill.html')
+     add_file :filename => 'bill.png',  :content => File.read('bill.png')
+     add_file :filename => 'bill.json', :content => File.read('bill.json')
+    html_part do
+      content_type 'text/html; charset=UTF-8'
+      body         email
+    end
+  end
+end
