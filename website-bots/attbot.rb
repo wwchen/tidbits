@@ -38,18 +38,38 @@ class String
     return self.gsub(/[[:space:]]/,' ').gsub(/\u00e2\u0088\u0092/, '-').strip
   end
   def strip_to_f
-    self.gsub(/[^0-9\.]/, '').to_f
+    self.gsub(/[^-0-9\.]/, '').to_f
   end
 end
 
 class Hash
+  # https://gist.github.com/weppos/6391
+  def rmerge(other_hash)
+    r = {}
+    merge(other_hash) do |key, oldval, newval|
+      r[key] = oldval.class == self.class ? oldval.rmerge(newval) : newval
+    end
+  end
+  def rmerge!(other_hash)
+    merge!(other_hash) do |key, oldval, newval|
+      oldval.class == self.class ? oldval.rmerge!(newval) : newval
+    end
+  end
   def first_rkey(search)
     search = Regexp.new(search.to_s) unless search.is_a? Regexp
     return keys.detect { |k| k =~ search }
   end
-
+  def rkey(search)
+    first_rkey search
+  end
   def has_rkey?(search)
     return !!first_rkey(search)
+  end
+  
+  # return the value of the key in regex. Nil if not found
+  def rvalue(search)
+    return nil unless has_rkey? search
+    return self[first_rkey(search)]
   end
 end
 
@@ -84,6 +104,7 @@ class Att
         end
       else
         level = 0
+        totals[k] = v if k == "Total"
       end
     end
     return [level+1, totals]
@@ -100,6 +121,7 @@ class Att
     end
     return json
   end
+
   private :get_total, :table_to_json
 
   # 
@@ -203,84 +225,181 @@ class Att
     return get_total([0, @bill_json])[1]
   end
 
+  def rebalance_bill
+    # Let's not worry about the subsections for now
+    totals = @bill_json.rmerge get_bill_totals
+    total_familytalk = 0.0
+    num_lines = @bill_json.keys.count
+
+    totals.each do |line, charges|
+      totals[line]['New total'] = nil
+      next unless charges.is_a? Hash
+      charges.each do |section, summary|
+        next unless summary.is_a? Hash
+        familytalk = summary.rvalue /FamilyTalk/i
+        discount   = summary.rvalue /Discount/i
+        total      = summary["Total"].strip_to_f
+        unless familytalk.nil?
+          discount = '0' if discount.nil?
+          subtotal = familytalk.strip_to_f + discount.strip_to_f
+          total_familytalk += subtotal
+
+          #totals[line][section]['New total'] = "$%0.2f" % (total - subtotal)
+          totals[line][section]['New total'] = total - subtotal
+          totals[line]['New total'] = charges['Total'].strip_to_f - subtotal
+        end
+      end
+    end
+
+    # average out the familytalk
+    avg_familytalk = total_familytalk / num_lines
+
+    # add back to each line
+    totals.each do |line, charges|
+      next unless charges.is_a? Hash
+      charges.each do |section, summary|
+        next unless summary.is_a? Hash
+        next unless summary.has_rkey? /Monthly Charges/i
+        subtotal = summary['New total']
+        #next if subtotal.nil?
+        totals[line][section]['New total'] = "$%0.2f" % (subtotal + avg_familytalk)
+        totals[line]['New total'] = "$%0.2f" % (charges['New total'] + avg_familytalk)
+      end
+    end
+
+    # play out the new totals
+    puts "Averaged familytalk: %0.2f" % avg_familytalk
+    totals.each do |line, charges|
+      next unless charges.is_a? Hash
+      charges.each do |section, summary|
+        next unless summary.is_a? Hash
+        next unless summary.has_rkey? /Monthly Charges/i
+
+        puts ""
+        puts "=*=*=*=*=*=*=*=*=*=*=*=*"
+        puts "=*=*= %s =*=*=" % line
+        puts "Original subtotal: %s" % summary["Total"]
+        puts "New subtotal:      %s" % summary["New total"]
+        puts "Original total:    %s" % charges["Total"]
+        puts "New total:         %s" % charges["New total"]
+        puts "=*=*=*=*=*=*=*=*=*=*=*=*"
+      end
+    end
+
+  end
+
   # TODO add the national discount in
   # FIXME deprecate?
-  def rebalance_bill
+  def rebalance_bill2
+    totals = @bill_json.rmerge get_bill_totals
     total_familytalk = 0
     num_lines = @bill_json.keys.count
+    # get the average
     @bill_json.each do |line, charges|
       # get the monthly voice charges
-      monthly_charge = charges.first_rkey /Monthly Charges/i
-      next unless monthly_charge # FIXME raise error
-      familytalk = charges[monthly_charge].first_rkey /FamilyTalk/i
-      next unless familytalk # FIXME
-      price = charges[monthly_charge][familytalk]
-      total_familytalk += price.strip_to_f
+      monthly_charge_key = charges.first_rkey /Monthly Charges/i
+      familytalk_key     = charges[monthly_charge_key].first_rkey /FamilyTalk/i
+      discount_key       = charges[monthly_charge_key].first_rkey /Discount/i
+      next unless monthly_charge_key # FIXME raise error
+      next unless familytalk_key     # FIXME
+      familytalk = charges[monthly_charge_key][familytalk_key]
+      discount   = charges[monthly_charge_key][discount_key]
+      discount   = '0' if discount.nil?
+      price      = familytalk.strip_to_f + discount.strip_to_f
+      total_familytalk += price
+
+      monthly_total = totals[line][monthly_charge_key]["Total"].strip_to_f - price
+      totals[line][monthly_charge_key]["Subtotal"] = monthly_total
 
       # double check on the math
       # get the totals of all the sections and add against the 'total'
-      sections_total = 0
-      account_total = charges['Total'].strip_to_f
-      charges.each do |k,section|
-        if section.is_a? Hash
-          key = section.first_rkey("Total " + k.split(' ')[0])
-          section_total = section[key].strip_to_f
-          sections_total += section_total
-          puts "%s's %s: %s" % [line, k.sub(/ - .*/,''), section_total] if DEBUG
-        end
-      end
-      # given that the calculated difference is less than five cents, don't raise an error
-      if DEBUG
-        puts "%s's sections total: %s" % [line, sections_total]
-        puts "%s's total: %s" % [line, account_total]
-        puts "%s's calculated difference in total: %s" % [line, (account_total-sections_total)]
-      end
-      difference = (account_total - sections_total).abs
-      if difference > 0.05
-        # FIXME raise error
-        STDERR.puts "WRONG WRONG WRONG. Calculated difference for %s is over five cents" % line
-      end
-
-      puts "%s's total: $%0.2s" % [line, account_total]
+      # NOT NECESSARY
+#      sections_total = 0
+#      account_total = charges['Total'].strip_to_f
+#      charges.each do |k,section|
+#        if section.is_a? Hash
+#          key = section.first_rkey("Total " + k.split(' ')[0])
+#          section_total = section[key].strip_to_f
+#          sections_total += section_total
+#          puts "%s's %s: %s" % [line, k.sub(/ - .*/,''), section_total] if DEBUG
+#        end
+#      end
+#      # given that the calculated difference is less than five cents, don't raise an error
+#      if DEBUG
+#        puts "%s's sections total: %s" % [line, sections_total]
+#        puts "%s's total: %s" % [line, account_total]
+#        puts "%s's calculated difference in total: %s" % [line, (account_total-sections_total)]
+#      end
+#      difference = (account_total - sections_total).abs
+#      if difference > 0.05
+#        # FIXME raise error
+#        STDERR.puts "WRONG WRONG WRONG. Calculated difference for %s is over five cents" % line
+#      end
+#
+#      puts "%s's total: $%0.2s" % [line, account_total]
     end
 
+    avg = (total_familytalk/num_lines)
     if DEBUG
       puts "total family talk: $%0.2f" % total_familytalk
-      puts "average family talk: $%0.2f" % (total_familytalk/num_lines)
+      puts "average family talk: $%0.2f" % avg
     end
-    puts "average family talk: $%0.2f" % (total_familytalk/num_lines)
+    puts "average family talk: $%0.2f" % avg
 
-
-
-
-
-
-    @bill_json.each do |line, charges|
-      # get the monthly voice charges
-      monthly_charge = charges.first_rkey /Monthly Charges/i
-      familytalk = charges[monthly_charge].first_rkey /FamilyTalk/i
-      price = charges[monthly_charge][familytalk].strip_to_f
-      account_total = charges['Total'].strip_to_f
-
+    orig_totals = get_bill_totals
+    totals.each do |line, sections|
+      monthly_charge_key = sections.first_rkey /Monthly Charges/i
       puts "======= %s =========" % line
-      puts "monthly charge: $%0.2f" % price
-      puts "total: $%0.2f" % account_total
+      puts "monthly charge: $%0.2f" % orig_totals[line][monthly_charge_key]["Total"].strip_to_f
+      puts "total: $%0.2f"          % orig_totals[line]["Total"].strip_to_f
 
-      avg = (total_familytalk/num_lines)
-      if price > avg
-        delta = price - avg
-        price = avg
-        account_total -= delta
-      else
-        delta = avg - price
-        price = avg
-        account_total += delta
-      end
-      
-      puts "new monthly charge: $%0.2f" % (price)
-      puts "new total: $%0.2f" % account_total
+      puts "new monthly charge: $%0.2f" % (totals[line][monthly_charge_key]["Total"].strip_to_f + avg)
+      #puts "new total: $%0.2f" % totals[line]["Total"] 
       puts "==============================" % line
     end
+
+
+
+
+
+#    @bill_json.each do |line, charges|
+#      # get the monthly voice charges
+#      monthly_charge_key = charges.first_rkey /Monthly Charges/i
+#      familytalk_key     = charges[monthly_charge_key].first_rkey /FamilyTalk/i
+#      discount_key       = charges[monthly_charge_key].first_rkey /Discount/i
+#      next unless monthly_charge_key # FIXME raise error
+#      next unless familytalk_key     # FIXME
+#      familytalk = charges[monthly_charge_key][familytalk_key]
+#      discount   = charges[monthly_charge_key][discount_key]
+#      discount   = '0' if discount.nil?
+#      price      = familytalk.strip_to_f + discount.strip_to_f
+#      total_familytalk += price
+#
+#      # get the monthly voice charges
+#      monthly_charge = charges.first_rkey /Monthly Charges/i
+#      familytalk = charges[monthly_charge].first_rkey /FamilyTalk/i
+#      price = charges[monthly_charge][familytalk].strip_to_f
+#      account_total = charges['Total'].strip_to_f
+#
+#      puts "======= %s =========" % line
+#      puts "monthly charge: $%0.2f" % price
+#      puts "total: $%0.2f" % account_total
+#
+#      avg = (total_familytalk/num_lines)
+#      if price > avg
+#        delta = price - avg
+#        price = avg
+#        account_total -= delta
+#      else
+#        delta = avg - price
+#        price = avg
+#        account_total += delta
+#      end
+#      
+#      puts "new monthly charge: $%0.2f" % (price)
+#      puts "new total: $%0.2f" % account_total
+#      puts "==============================" % line
+#    end
   end
 end
 
@@ -303,8 +422,8 @@ spider = Att.new
 spider.login
 spider.get_bill_summary
 data = JSON.pretty_generate spider.parse
-spider.rebalance_bill
-puts spider.get_bill_totals.to_json
+spider.rebalance_bill2
+#puts spider.get_bill_totals.to_json
 
 File.open('bill.json', 'w') { |f| f.write data }
 
