@@ -5,6 +5,10 @@ require 'koala'
 require 'exifr'
 require 'xmp'
 require 'yamler'
+require 'json'
+
+# get the access token from:
+# https://developers.facebook.com/tools/explorer
 
 def load_yaml(path)
   return Yamler.load(File.join(File.dirname(File.expand_path(__FILE__)), path))
@@ -41,7 +45,8 @@ end
 album_id = config['album_id']
 if album_id.nil? or album_id.strip.empty?
   STDOUT.write "Creating an album... "
-  resp = graph.put_object('me', 'albums', {:name => 'Japan', :privacy => "{'value':'SELF'}"})
+  #resp = graph.put_object('me', 'albums', {:name => config['album_name'], :privacy => "{'value':'SELF'}"})
+  resp = graph.put_object('me', 'albums', {:name => config['album_name']})
   album_id = resp['id']
   STDOUT.puts (album_id.nil? ? "Failed!" : "Success!\n=> Album id: #{album_id}")
 else
@@ -63,13 +68,18 @@ pics.each do |pic|
 
   # gps info
   has_gps = exif.gps.nil? ? false : true
+  has_gps = false # TODO
   loc = {}
   if has_gps
     lat = exif.gps.latitude
     lng = exif.gps.longitude
     if lat.finite? and lng.finite?
       puts "=> Found location info: [#{lat}, #{lng}]"
-      loc = {'latitude' => lat, 'longitude' => lng}
+      places = graph.get_object('search', {:type => 'place', :center => "#{lat},#{lng}", :distance => 100})
+      place = places.first
+      unless place.nil?
+        puts "=> Matched place: "
+      end
     end
   end
 
@@ -87,29 +97,36 @@ pics.each do |pic|
     puts "=> Matching user ids: #{id_tags.keys.join ', '}"
 
     has_tags = false if id_tags.empty?
-    tag_str = other_tags.empty? ? '' : "\ntags: #{other_tags.join(', ')}"
-    message = [title, caption, tag_str].join("\n").strip
+    tag_str = other_tags.empty? ? '' : "tags: #{other_tags.join(', ')}"
+    tag_str = ""
+    message = [title, caption, '', File.basename(pic), tag_str].join("\n").strip
   end
 
   # upload the picture
   5.times do
     begin
       STDOUT.write "Uploading picture... "
-      resp = graph.put_picture(pic, {:message => message, :location => loc}, album_id)
+      #resp = graph.put_picture(pic, {:message => message, :place => '{"id": "325247840915699"}'}, album_id)
+      resp = graph.put_picture(pic, {:message => message}, album_id)
       break
-    rescue
-      STDOUT.puts "Failed!"
+    rescue Exception => e
+      STDOUT.puts "Failed! Reason: #{e}"
+      resp = []
     end
   end
   photo_id = resp['id']
   STDOUT.puts (photo_id.nil? ? "Failed!" : "Success!\n=> Picture id: #{photo_id}")
   
   # tag the picture
-  # https://developers.facebook.com/docs/reference/api/photo/, tags#create
+  # https://developers.facebook.com/docs/reference/api/photo/ tags#create
   if has_tags
     STDOUT.write "Tagging picture... "
     tag_params = id_tags.map {|k,v| {'tag_uid' => v}}
     resp = graph.put_connections(photo_id, 'tags', :tags => tag_params.to_json)
+#    tag_params.each do |tag_param|
+#      resp = graph.put_connections(photo_id, 'tags', :tags => tag_param.to_json)
+#      break unless resp
+#    end
     STDOUT.puts resp ? "Success!" : "Failed!"
   else
     puts "No tags found in the picture.. Skipping tagging process"
