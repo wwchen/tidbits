@@ -1,5 +1,13 @@
 #!/usr/bin/env ruby
 
+## Purpose of AT&T Bot
+# This script does the following:
+# 1. Login with the supplied credential and passcode
+# 2. Get the bill summary, save a screenshot and html
+# 3. Parse the bill summary and convert into a json
+# 4. Rebalance the bill. Each line's Monthly Charges are averaged out
+# 5. Send out an email with the rebalanced monthly bill for each line on the account
+
 require 'rubygems'
 require 'nokogiri'
 require 'yaml'
