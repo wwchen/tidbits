@@ -15,6 +15,7 @@ url = "https://goes-app.cbp.dhs.gov/"
 config = "config.yml"
 
 CONFIG = YAML.load_file(File.join(File.dirname(File.expand_path(__FILE__)),config)) unless defined? CONFIG
+
 ## Cabybara set up
 Capybara.run_server = false
 Capybara.app_host = url
@@ -43,6 +44,8 @@ Mail.defaults do
 end
 
 class Goes_bot
+  attr_accessor :my_date
+
   include Capybara::DSL
   def get_calendar
     puts "Visiting webpage"
@@ -59,22 +62,26 @@ class Goes_bot
     puts "Manage Interview Appointment"
     click_on "Manage Interview Appointment"
 
+    # find the scheduled appointment time
+    label = find(:xpath, '//p/strong[contains(text(), "Interview Date")]').text
+    idate  = find(:xpath, '//p/strong[contains(text(), "Interview Date")]/..').text
+    idate.sub!(label, '')
+
+    label = find(:xpath, '//p/strong[contains(text(), "Interview Time")]').text
+    itime  = find(:xpath, '//p/strong[contains(text(), "Interview Time")]/..').text
+    itime.sub!(label, '')
+    @my_date = Time.parse(idate + itime)
+    puts "My current scheduled interview date is " + @my_date.to_s
+
     puts "Reschedule Appointment"
     click_on "Reschedule Appointment"
 
     puts "Select enrollment center"
     save_page 'center.html'
-    #select "Seattle Urban Enrollment Center - 7277 PERIMETER ROAD SOUTH  RM 116, KING COUNTY INTERNATIONAL AIRPORT, BOEING FIELD, SEATTLE, WA 98108, US",
-    #find('//*[@id="selectedEnrollmentCenter"]').text
-    #select("Seattle Urban Enrollment Center",
-    #       {:from => "selectedEnrollmentCenter", :match => :smart})
     find('option', :text => /Seattle Urban Enrollment Center/).select_option
     click_on "Next"
 
     save_page 'earliest.html'
-    #within '.maincontainer' do
-    #  puts find('b').text
-    #end
   end
 
   def parse_calendar
@@ -84,21 +91,21 @@ class Goes_bot
     bolded.map! {|a| a.text}
     printf("%s: %s %s - %s\n", *bolded)
 
-    last  = open("earliest.txt", "a+").read
-    now   = bolded[1..2].join(' ')
-    tnow  = Time.strptime(now, "%Y-%m-%d %H%M")
-    early = tnow
+    avail      = bolded[1..2].join(' ')
+    avail_date = Time.strptime(avail, "%Y-%m-%d %H%M")
     open("earliest.txt", "w+") do |f|
-      if not last.empty?
-        tlast = Time.parse last
-        early = [tnow, tlast].min
-        if early != tlast
-          puts "Sending email"
-          send_email(early)
-        end
+      earliest = [avail_date, @my_date].min
+      # We have an early interview date
+      if earliest != @my_date
+        puts "Sending email"
+        send_email(earliest)
+        reschedule()
       end
-      f.write(early)
+      f.write(earliest)
     end
+  end
+
+  def reschedule
   end
 
   def send_email(msg)
