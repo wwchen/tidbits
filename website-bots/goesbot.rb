@@ -4,10 +4,7 @@ require "rubygems"
 require "capybara"
 require "capybara/dsl"
 require "capybara-webkit"
-#require "headless"
-require "nokogiri"
 require "yaml"
-require "time"
 require 'mail'
 
 ## Configs
@@ -85,23 +82,21 @@ class Goes_bot
   end
 
   def parse_calendar
-    page = Nokogiri::HTML(open('earliest.html'))
-    container = page.xpath("//div[@class='maincontainer']")
-    bolded = container.xpath("//b").to_a
-    bolded.map! {|a| a.text}
-    printf("%s: %s %s - %s\n", *bolded)
+    within(:xpath, "//div[@class='maincontainer']") do
+      bolded = all(:xpath, ".//b").to_a
+      bolded.map! {|a| a.text}
+      printf("%s: %s %s - %s\n", *bolded)
 
-    avail       = bolded[1..2].join(' ')
-    @avail_date = Time.strptime(avail, "%Y-%m-%d %H%M")
-    open("earliest.txt", "w+") do |f|
+      avail       = bolded[1..2].join(' ')
+      @avail_date = Time.strptime(avail, "%Y-%m-%d %H%M")
       earliest = [@avail_date, @my_date].min
+
       # We have an early interview date
       if earliest != @my_date
         puts "Sending email"
         send_email(earliest)
         reschedule()
       end
-      f.write(earliest)
     end
   end
 
