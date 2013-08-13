@@ -1,13 +1,12 @@
 CC=g++
 CFLAGS=
-CPP := $(wildcard *.cpp)
-OBJ := $(patsubst %.cpp,%.out,$(CPP))
+CPPS := $(wildcard *.cpp)
+OBJS := $(patsubst %.cpp,%.out,$(CPPS))
 
-all: $(OBJ)
+all: $(OBJS)
 
-%.out: $(CPP)
+%.out: %.cpp
 	$(CXX) -o $@ $^
-
 	
 clean: 
 	rm -f *.o *~ *.out core
