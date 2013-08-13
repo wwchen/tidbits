@@ -44,7 +44,7 @@ Mail.defaults do
 end
 
 class Goes_bot
-  attr_accessor :my_date
+  attr_accessor :my_date, :avail_date
 
   include Capybara::DSL
   def get_calendar
@@ -91,10 +91,10 @@ class Goes_bot
     bolded.map! {|a| a.text}
     printf("%s: %s %s - %s\n", *bolded)
 
-    avail      = bolded[1..2].join(' ')
-    avail_date = Time.strptime(avail, "%Y-%m-%d %H%M")
+    avail       = bolded[1..2].join(' ')
+    @avail_date = Time.strptime(avail, "%Y-%m-%d %H%M")
     open("earliest.txt", "w+") do |f|
-      earliest = [avail_date, @my_date].min
+      earliest = [@avail_date, @my_date].min
       # We have an early interview date
       if earliest != @my_date
         puts "Sending email"
@@ -106,6 +106,29 @@ class Goes_bot
   end
 
   def reschedule
+    if current_path != '/main/goes/SelectEnrollmentCenterPostAction.do'
+      puts "I'm not where I'm supposed to be at to change the schedule. Nope, not gonna do unsafe operations"
+      return
+    end
+    click_on "Next"
+
+    find(:xpath, '//div[@class="schedule-detailed"]//a[@class="entry"][1]').click
+
+    # verify
+    label = find(:xpath, '//div[@class="maincontainer"]//strong[contains(text(), "New Interview Date")]').text
+    idate = find(:xpath, '//div[@class="maincontainer"]//strong[contains(text(), "New Interview Date")]/..').text
+    idate.sub!(label, '')
+
+    label = find(:xpath, '//div[@class="maincontainer"]//strong[contains(text(), "New Interview Time")]').text
+    itime = find(:xpath, '//div[@class="maincontainer"]//strong[contains(text(), "New Interview Time")]/..').text
+    itime.sub!(label, '')
+    newdate = Time.parse(idate + itime)
+    puts "New date is " + newdate.to_s
+    puts newdate == @avail_date
+
+    fill_in "comments", :with => "earlier time"
+    click_on "Confirm"
+    puts "The damage is done"
   end
 
   def send_email(msg)
