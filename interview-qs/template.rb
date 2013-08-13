@@ -1,4 +1,10 @@
 #!/usr/bin/env ruby
+## Source:
+## Question:
+# <insert question here>
+## Example:
+# INPUT:  
+# OUTPUT: 
 
 ## WORK IN PROGRESS
 ## This is teh template I will use for my question/solution
@@ -14,13 +20,6 @@ end
 def debug(str)
   puts str if DEBUG
 end
-
-## Question:
-# <insert question here>
-
-## Example:
-# INPUT:  
-# OUTPUT: 
 
 ## Solution 1:
 # <insert explaination here>
