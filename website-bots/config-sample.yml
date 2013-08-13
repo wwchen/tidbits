@@ -12,3 +12,7 @@ MIN_SEARCHES: 30
 MAX_SEARCHES: 50
 MIN_WAIT_SECS: 120
 MAX_WAIT_SECS: 300
+
+GOES_USERNAME: your_username
+GOES_PASSWORD: your_password
+MAIL_TO_SELF: ['myself@example.com']
