@@ -74,11 +74,8 @@ class Goes_bot
     click_on "Reschedule Appointment"
 
     puts "Select enrollment center"
-    save_page 'center.html'
     find('option', :text => /Seattle Urban Enrollment Center/).select_option
     click_on "Next"
-
-    save_page 'earliest.html'
   end
 
   def parse_calendar
