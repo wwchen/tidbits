@@ -1,13 +1,12 @@
 #!/usr/bin/env ruby
-## Source:
-## Question:
-# <insert question here>
-## Example:
-# INPUT:  
-# OUTPUT: 
-
 ## WORK IN PROGRESS
 ## This is teh template I will use for my question/solution
+
+## Source:
+## Question:
+QUESTION = "Given a string of numbers in sequence order. find the missing number. Range is not given."
+INPUT    = "9899100101103104105" 
+OUTPUT   = "102"
 
 ## Usage help
 # ARGS is the argument list
@@ -15,6 +14,10 @@ ARGS = %w(arg1 arg2)
 DEBUG = true
 if ARGV.count != ARGS.count
   printf("Usage: %s %s\n", __FILE__, ARGS.join(' '))
+  printf("\n----\n%s\n----\n", QUESTION)
+  printf("Input:\t%s\n", INPUT)
+  printf("Output:\t%s\n", OUTPUT)
+  exit
 end
 
 def debug(str)
