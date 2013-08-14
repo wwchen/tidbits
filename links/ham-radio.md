@@ -22,7 +22,7 @@ Radio documentations
 Ham Radio 101
 =============
 [http://makezine.com/2009/08/30/theres-plenty-of-fun-to/](Makezine ham radio 101)
-[http://www.hamuniverse.com/repeater.html](Understanding concept of repeaters]
+[http://www.hamuniverse.com/repeater.html](Understanding concept of repeaters)
 
 Frequency databases
 ===================
@@ -43,9 +43,9 @@ Public Safety frequencies
 
 Seattle frequencies
 -------------------
-+--------------+-----------+---------+---------+------+------+
-| Name         | Call sign | Output  | Input   | PL   | Link |
-+--------------+-----------+---------+---------+------+------+
-| NOAA         | KHB60     | 162.550 | -       | -    | [http://www.nws.noaa.gov/nwr/Maps/PHP/site.php?State=WA&Site=KHB60](Link) |
-+--------------+-----------+---------+---------+------+------+
+`+--------------+-----------+---------+---------+------+------+`
+`| Name         | Call sign | Output  | Input   | PL   | Link |`
+`+--------------+-----------+---------+---------+------+------+`
+`| NOAA         | KHB60     | 162.550 | -       | -    | `[http://www.nws.noaa.gov/nwr/Maps/PHP/site.php?State=WA&Site=KHB60](Link)` |`
+`+--------------+-----------+---------+---------+------+------+`
 
