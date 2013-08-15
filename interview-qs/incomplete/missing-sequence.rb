@@ -19,7 +19,12 @@ if ARGV.count != ARGS.count
 end
 
 def debug(str)
-  puts str if DEBUG
+  puts "\e[33mDEBUG:\e[0m " + str if DEBUG
+end
+
+def error(str)
+  puts "\e[31mERROR:\e[0m " + str if DEBUG
+  exit
 end
 
 ## Solution 1:
@@ -39,10 +44,22 @@ end
 # Space:      O()
 # Complexity: O()
 def main(args)
-  str = ARGV.first
-  debug("Input is " + str)
-  str.each_char do |char|
-    digit = char.to_i
+  index = 0
+  string = ARGV.first
+  debug("Input is " + string)
+  while index < string.length
+    first_digit = string[index].to_i
+    number = string[index]
+    error("Input cannot start with a 0") if first_digit == 0
+
+    index += 1
+    if string[index].to_i < first_digit
+      number += string[index]
+    end
+
+
+    index += 1 # for now
+    puts first_digit
   end
 end
 

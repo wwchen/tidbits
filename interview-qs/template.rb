@@ -21,7 +21,12 @@ if ARGV.count != ARGS.count
 end
 
 def debug(str)
-  puts str if DEBUG
+  puts "\e[31mDEBUG:\e[0m " + str if DEBUG
+end
+
+def error(str)
+  puts "\e[31mERROR:\e[0m " + str if DEBUG
+  exit
 end
 
 ## Solution 1:
