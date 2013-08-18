@@ -45,8 +45,8 @@ end
 # little  5,6,15,16,25
 # As you can see, there is no apparent pattern here. Scratch that. I found one.
 # Multiple of 5's alternate between thumb and little finger.
-# Space:      O()
-# Complexity: O()
+# Space:      O(1)
+# Complexity: O(1)
 def eputs(str)
   puts str
   exit
