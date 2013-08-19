@@ -44,17 +44,45 @@ end
 # Space:      O()
 # Complexity: O()
 def main(args)
-  index = 0
   string = ARGV.first
   debug("Input is " + string)
-  while index < string.length
-    first_digit = string[index].to_i
-    number = string[index]
-    error("Input cannot start with a 0") if first_digit == 0
+  numbers = []
+  numbers.push string[0]            # first digit is special b/c that's the only starting point 
+  first_digit = numbers[0].to_i     # assumption we can make
+  error("Input cannot start with a 0") if first_digit == 0
 
-    index += 1
-    if string[index].to_i < first_digit
-      number += string[index]
+  str_ind = 0
+  num_ind = 0
+  while index < string.length
+    # if the next digit is the following digit of the first digit (i.e 5->6), and the prev digit ends with
+    # 8 or 9, it can be the next number in the sequence. Special case of this is 9->1, when 99 goes to 100.
+    # 
+    # we have to be careful how we compare digits. 1 is bigger than 9 in some cases
+    number = digit_one = string[str_ind]
+    boundary = false
+    while not boundary
+      str_ind += 1
+      digit_nxt = string[str_ind]
+      # if the next digit is smaller than the first digit in the number, it can't be the next number in sequence
+      if digit_nxt < digit_one
+        number += digit_nxt
+        continue
+      end
+
+      # if the next digit is equal to the first digit, it can be the next number in the sequence
+      if digit_nxt == digit_one
+      end
+
+      if digit_nxt == digit_one + 1 or (digit_nxt == 1 and digit_one == 9 and number[-1] == 8 or 9)
+      end
+
+    end
+    numbers[num_ind] = number
+    str_ind += 1
+
+    while string[str_ind].to_i < first_digit
+      numbers[num_ind] += string[str_ind]
+      str_ind += 1
     end
 
 
