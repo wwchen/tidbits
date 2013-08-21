@@ -21,7 +21,7 @@ if ARGV.count != ARGS.count
 end
 
 def debug(str)
-  puts "\e[31mDEBUG:\e[0m " + str if DEBUG
+  puts "\e[33mDEBUG:\e[0m " + str if DEBUG
 end
 
 def error(str)
@@ -38,5 +38,5 @@ end
 
 
 ## Execution
-main(ARGS)
+main(ARGV)
 
