@@ -38,11 +38,36 @@ class Array
     self.each { |i| sum += i.to_i }
     return sum
   end
+
+  def subset(n)
+    sets = []
+    return self if n >= self.length
+    (0..self.length-n).each { |i| sets.push self[i..i+n] }
+    return sets
+  end
 end
 
 def main(args)
-  puts args[0]
-  puts [1,2,3].sum
+  # convert the string to an array
+  string = args[0]
+  error "Invalid string" unless string.gsub(/[\{\[,\]\}\s\d-]/, '').empty?
+  array = string.match(/[-\d\s,]+/).to_s.split(',').map { |s| s.to_i }
+  debug "Parsed array is " + array.to_s
+
+  largest_sum = -999999
+  largest_array = nil
+  array.each_index do |i|
+    array.subset(i).each do |subset|
+      sum = subset.sum
+      if largest_sum < sum
+        largest_sum = sum
+        largest_array = subset
+      end
+    end
+  end
+
+  puts "Largest sum is " + largest_sum.to_s
+  puts "The corresponding subset is " + largest_array.to_s
 end
 
 
