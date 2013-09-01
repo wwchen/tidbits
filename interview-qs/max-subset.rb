@@ -1,8 +1,12 @@
 #!/usr/bin/env ruby
-## WORK IN PROGRESS
-## This is teh template I will use for my question/solution
-
 ## Source: Cracking the coding interview, 19.7
+# Test cases:
+# {1,1,1}
+# {-1,0,1}
+# {1,-1,1,-1,-2,4}
+# {9,4,2,-20,23}
+# {-56,-23,-1,-4}
+# {-34,-39,4459,-923}
 QUESTION = "You are given an array of integers (both positive and negative) Find the continuous sequence with the largest sum. Return the sum"
 INPUT    = "{2, -8, 3, -2, 4, -10}"
 OUTPUT   = "5 (i.e., {3, -2, 4})"
@@ -47,15 +51,21 @@ class Array
   end
 end
 
-def main(args)
+def try_parse(string)
   # convert the string to an array
-  string = args[0]
   error "Invalid string" unless string.gsub(/[\{\[,\]\}\s\d-]/, '').empty?
   array = string.match(/[-\d\s,]+/).to_s.split(',').map { |s| s.to_i }
   debug "Parsed array is " + array.to_s
+  return array
+end
 
-  largest_sum = -999999
+def main(args)
+  array = try_parse args[0]
+
+  # keep try of the largest sum
+  largest_sum = -99999999       # arbitrary. I donno how to find the INT_MIN in ruby
   largest_array = nil
+  # go through all possible subsets in all lengths
   array.each_index do |i|
     array.subset(i).each do |subset|
       sum = subset.sum
@@ -68,6 +78,11 @@ def main(args)
 
   puts "Largest sum is " + largest_sum.to_s
   puts "The corresponding subset is " + largest_array.to_s
+end
+
+def main2(args)
+  # instead of n^2, let's try doing O(n) now
+  array = try_parse args[0]
 end
 
 
