@@ -93,7 +93,7 @@ def main2(args)
   sums = []
   # k
   array.each_index do |i|
-    sums.push array[0,i].sum
+    sums.push array[0,i+1].sum
   end
   # find the indices with max value
   rmax_indices = []
