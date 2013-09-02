@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+require 'benchmark'
+
 ## Source: Cracking the coding interview, 19.7
 # Test cases:
 # {1,1,1}
@@ -24,18 +26,14 @@ if ARGV.count != ARGS.count
 end
 
 def debug(str)
-  puts "\e[33mDEBUG:\e[0m " + str if DEBUG
+  puts "\e[33mDEBUG:\e[0m " + str.to_s if DEBUG
 end
 
 def error(str)
-  puts "\e[31mERROR:\e[0m " + str if DEBUG
+  puts "\e[31mERROR:\e[0m " + str.to_s if DEBUG
   exit
 end
 
-## Solution 1:
-# Most obvious and inefficent approach: for all possible lengths of subset, sum up and return the the largest sum
-# Space:      O(1)
-# Complexity: O(n^2)
 class Array
   def sum
     sum = 0
@@ -59,6 +57,10 @@ def try_parse(string)
   return array
 end
 
+## Solution 1:
+# Most obvious and inefficent approach: for all possible lengths of subset, sum up and return the the largest sum
+# Space:      O(1)
+# Complexity: O(n^2)
 def main(args)
   array = try_parse args[0]
 
@@ -81,11 +83,51 @@ def main(args)
 end
 
 def main2(args)
-  # instead of n^2, let's try doing O(n) now
+  # instead of O(n^2), let's try doing O(n) now
+  # basic idea is to "trim" right side of the array, then the left
+  # find what indicies get the max value from index 0..i, then
+  # find what index get the max value from j..i
+  # Worst case O(n^2), where all the elements produce the max value
+  # Average and best case O(2*n) == O(n)
   array = try_parse args[0]
+  sums = []
+  rmax_indices = []
+  # k
+  array.each_index do |i|
+    sums.push array[0,i+1].sum
+  end
+  # find the indices with max value
+  max_sum = sums.max
+  first_index = 0
+  while true
+    index = sums[first_index,sums.count].index max_sum
+    rmax_indices.push index unless index == nil
+    break if index == nil or index == sums.count-1
+    first_index = index
+  end
+
+  max_subarray = []
+  max_sum = -99999999
+  rmax_indices.each do |i|
+    (0..i).each do |j|
+      subarray = array[j,i]
+      submaxsum = subarray.sum
+      if submaxsum > max_sum
+        max_subarray = subarray
+        max_sum = submaxsum
+      end
+    end
+  end
+
+  puts "Largest sum is " + max_sum.to_s
+  puts "The corresponding subset is " + max_subarray.to_s
 end
 
 
 ## Execution
-main(ARGV)
+puts "Solution 1:"
+puts Benchmark.measure { main(ARGV) }
+puts "\n==========\n"
+puts "Solution 2:"
+puts Benchmark.measure { main2(ARGV) }
 
