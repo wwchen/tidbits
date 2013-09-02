@@ -93,7 +93,7 @@ def main2(args)
   sums = []
   # k
   array.each_index do |i|
-    sums.push array[0,i+1].sum
+    sums.push array[0,i].sum
   end
   # find the indices with max value
   rmax_indices = []
@@ -106,6 +106,9 @@ def main2(args)
 
   max_subarray = []
   max_sum = -99999999
+  # This find the longest matching subset that has max value
+  # Uncomment the following to find the shortest matching
+  # (rmax_indices-1..0).each do |i|
   rmax_indices.each do |i|
     (0..i).each do |j|
       subarray = array[j,i]
