@@ -91,19 +91,17 @@ def main2(args)
   # Average and best case O(2*n) == O(n)
   array = try_parse args[0]
   sums = []
-  rmax_indices = []
   # k
   array.each_index do |i|
     sums.push array[0,i+1].sum
   end
   # find the indices with max value
+  rmax_indices = []
   max_sum = sums.max
-  first_index = 0
-  while true
-    index = sums[first_index,sums.count].index max_sum
-    rmax_indices.push index unless index == nil
-    break if index == nil or index == sums.count-1
-    first_index = index
+  sums.each_index do |i|
+    if sums[i] == max_sum
+      rmax_indices.push i
+    end
   end
 
   max_subarray = []
