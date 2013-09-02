@@ -82,6 +82,9 @@ def main(args)
   puts "The corresponding subset is " + largest_array.to_s
 end
 
+# TODO this doesn't/can't work, actually
+# example input: {5, -3, -4, -2, 6, -4, 1, 3}
+# When you have {0, -1, -10, 2}, this approach would say 0 is the max
 def main2(args)
   # instead of O(n^2), let's try doing O(n) now
   # basic idea is to "trim" right side of the array, then the left
@@ -129,6 +132,7 @@ end
 puts "Solution 1:"
 puts Benchmark.measure { main(ARGV) }
 puts "\n==========\n"
+puts "WARNING: Doesn't work in all cases"
 puts "Solution 2:"
 puts Benchmark.measure { main2(ARGV) }
 
