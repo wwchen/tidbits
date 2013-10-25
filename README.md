@@ -22,3 +22,10 @@ website crawler/bots that would help with my life immensely. Notably, there are 
 
 This can be discovered in the `/website-bots` folder.
 
+Tag Facebook Photos
+===================
+A little script which immensenly helped me when I upload photos. The great thing about sharing pictures on Facebook is
+the ability to tag people. Now, uploading from Lightroom (where I do my editing and processing) doesn't do it automagically,
+and I've already done the painstakingly hard job in Lightroom already - I don't want to put myself to doing that again!
+So this script will parse the EXIF tags incorporated in each picture, and find if the keyword is in usermapping.
+If it is, it will call Facebook API to tag the person
