@@ -218,7 +218,7 @@ class Att
     else
       login unless @is_logged_in
       puts "Opening bill details"
-      click_link 'Bill Details'
+      #click_link 'Bill Details'
 
       # bill full summary page
       visit '/pmt/jsp/titan/wireless/billPay-billSummary-printView.jsp?tooltip=no'
@@ -334,7 +334,7 @@ spider.bill[:json].each do |line, charges|
 end
 
 email = <<-eos
-<p>The information below is retrieved on #{Time.now.strftime "%A %B %-m, %Y, %I:%m %p"} by logging onto AT&T online portal</p>
+<p>The information below is retrieved on #{Time.now.strftime "%A %B %-d, %Y, %-I:%M %p"} by logging onto AT&T online portal</p>
 <p>Attached is the bill summary in full details. Use it to verify the validity of all information here</p>
 <p>Transfer money via <a href='https://bankofamerica.com'>Bank of America</a> to Rebecca.
 Direct questions about this email to William</p>
