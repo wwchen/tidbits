@@ -3,6 +3,11 @@
 ## firewall.sh
 # Execute this script as root on a debian based system to enable ingress firewall
 
+if [[ $EUID -ne 0 ]]; then
+  echo "Please execute this firewall script as root"
+  exit 1
+fi
+
 echo "Stopping firewall and allowing everyone..."
 iptables -F
 iptables -X
