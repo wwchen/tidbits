@@ -4,12 +4,12 @@
 // measurements  http://i.imgur.com/4EWnrBd.jpg
 
 width = 32;
-height = 9;
+height = 10;
 rod_width = 6.5;
-attaching_head_radius = 6;
-attaching_head_min_radius = 5.2;
-groove_depth = 0.5;
-connector_head_radius = 5.25;
+attaching_head_radius = 7;
+attaching_head_min_radius = 6.2;
+groove_depth = 0.8;
+connector_head_radius = 5.75;
 
 teeth_count = 4;
 attaching_head_radius_step = ( attaching_head_radius - attaching_head_min_radius ) / teeth_count;
