@@ -364,6 +364,7 @@ if SEND_EMAIL
   Mail.deliver do
            to CONFIG['MAIL_TO']
          from CONFIG['GMAIL_USERNAME']
+     reply_to CONFIG['MAIL_TO']
       subject "AT&T bill - #{spider.bill[:period]}"
      add_file :filename => HTML_FILE,       :content => File.read(HTML_FILE)
      add_file :filename => SCREENSHOT_FILE, :content => File.read(SCREENSHOT_FILE)
