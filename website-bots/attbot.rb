@@ -99,7 +99,7 @@ end
 # Grabs the AT&T bill summary
 ##
 class Att
-  attr_accessor :bill
+  attr_accessor :bill, :avg_familytalk, :avg_tax
   def initialize
     @bill = { :json => {}, :html => nil, :period => nil }
     @is_logged_in = false
@@ -238,46 +238,61 @@ class Att
     # Let's not worry about the subsections for now
     totals = @bill[:json].rmerge get_bill_totals
     total_familytalk = 0.0
+    total_tax = 0.0
     num_lines = @bill[:json].keys.count
 
     totals.each do |line, charges|
-      totals[line]['New total'] = nil
       next unless charges.is_a? Hash
+      totals[line]['New total'] = charges['Total'].strip_to_f
+      # charges is Monthly Charges or Other Charges
       charges.each do |section, summary|
         next unless summary.is_a? Hash
-        familytalk = summary.rvalue /FamilyTalk/i
-        discount   = summary.rvalue /Discount/i
-        total      = summary["Total"].strip_to_f
-        unless familytalk.nil?
+        total    = summary["Total"].strip_to_f
+        subtotal = 0.0
+        unless (section =~ /Monthly Charges/i).nil?
+          familytalk = summary.rvalue /FamilyTalk/i
+          discount   = summary.rvalue /Discount/i
+
           discount = '0' if discount.nil?
           subtotal = familytalk.strip_to_f + discount.strip_to_f
           total_familytalk += subtotal
-
-          #totals[line][section]['New total'] = "$%0.2f" % (total - subtotal)
-          totals[line][section]['New total'] = total - subtotal
-          totals[line]['New total'] = charges['Total'].strip_to_f - subtotal
         end
+        unless (section =~ /Other Charges/i).nil?
+          taxes      = (summary.rvalue /Taxes/i)['Total']
+          surcharges = (summary.rvalue /Surcharges/i)['Total']
+
+          subtotal = taxes.strip_to_f + surcharges.strip_to_f
+          total_tax += subtotal
+        end
+        totals[line][section]['New total'] = total - subtotal
+        totals[line]['New total'] -= subtotal
       end
     end
 
     # average out the familytalk
     avg_familytalk = total_familytalk / num_lines
+    avg_tax        = total_tax        / num_lines
+    @avg_familytalk = avg_familytalk
+    @avg_tax        = avg_tax
 
     # add back to each line
     totals.each do |line, charges|
       next unless charges.is_a? Hash
       charges.each do |section, summary|
         next unless summary.is_a? Hash
-        next unless summary.has_rkey? /Monthly Charges/i
         subtotal = summary['New total']
-        #next if subtotal.nil?
-        totals[line][section]['New total'] = "$%0.2f" % (subtotal + avg_familytalk)
-        totals[line]['New total'] = "$%0.2f" % (charges['New total'] + avg_familytalk)
+        average = avg_tax # since we only have two, I can do this
+        unless (section =~ /Monthly Charges/i).nil?
+          average = avg_familytalk
+        end
+        totals[line][section]['New total'] = "$%0.2f" % (subtotal + average)
       end
+      totals[line]['New total'] = "$%0.2f" % (charges['New total'] + avg_familytalk + avg_tax)
     end
 
     # play out the new totals
     puts "Averaged familytalk: %0.2f" % avg_familytalk
+    puts "Averaged taxes/surcharges: %0.2f" % avg_tax
     totals.each do |line, charges|
       next unless charges.is_a? Hash
       charges.each do |section, summary|
@@ -313,6 +328,8 @@ File.open(JSON_FILE, 'w') { |f| f.write JSON.pretty_generate(spider.bill[:json])
 header_strings = []
 html_strings = []
 html = "<h2>Billing Period: %s</h2>" % spider.bill[:period]
+html += "<strong>Average FamilyTalk charges: $%0.2f</strong><br>" % spider.avg_familytalk
+html += "<strong>Average tax and surcharges: $%0.2f</strong><br>" % spider.avg_tax
 spider.bill[:json].each do |line, charges|
   html += "<h3>%s - %s</h3>" % [line, charges["Name"]]
   if charges.is_a? Hash
