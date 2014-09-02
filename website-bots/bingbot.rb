@@ -32,7 +32,7 @@ module Bing
       click_on "Sign in" 
 
       puts "Signing in"
-      find(:xpath, "//table[@id='id_dt']/tbody/tr[position() = 2]").click_on('Connect')#click on the second connect link
+      find(:xpath, "//*[@id='b_idProviders']/li[1]").click_on('Connect')#click on the first connect link
       fill_in "login", :with=>CONFIG['BING_USERNAME']
       fill_in "passwd", :with=>CONFIG['BING_PASSWORD']
       sleep 2
