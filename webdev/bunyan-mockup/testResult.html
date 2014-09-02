@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+
+    <!-- CDN for DataTables is available at http://www.asp.net/ajaxlibrary/CDNjQueryDataTables194.ashx -->
+    <script src="http://ajax.aspnetcdn.com/ajax/jquery.dataTables/1.9.4/jquery.dataTables.js"></script>
+    <link rel="stylesheet" href="css/jquery.dataTables.css">
+    <link rel="stylesheet" href="css/jquery.dataTables_themeroller.css">
+
+    <!-- tutorial is here: http://datatables.net/release-datatables/examples/api/row_details.html -->
+  </head>
+  <body>
+    <table class="table" id="example">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Test Plan</th>
+          <th>Test Case ID</th>
+          <th>Platform</th>
+          <th>Device Pool</th>
+          <th>Test Result</th>
+          <th>Test Owner</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+
+    <script type="text/javascript">
+      // Data generator
+      var collapse = ["+"];
+      var testPlan = ["Launch app", "testAboutSettings", "testClickSettings", "testOptionsSettings", "testArticleReader"];
+      var testCaseId = [];
+      var owner = ["jimmul", "bobbrow", "wichen"];
+      var tier = ["Tier0", "Tier1"];
+      var platform = ["iOS", "Android"];
+      var outcome = ["Passed", "Blocked", "Failed"];
+      for (var i = 0; i < 100; i++) {
+        testCaseId.push( Math.floor(Math.random() * 10000) + 100000 );
+      }
+
+      var columns = [collapse, testPlan, testCaseId, platform, tier, outcome, owner];
+
+      function r(arr) {
+        var ind = Math.floor(Math.random() * arr.length);
+        return arr[ind];
+      }
+
+      body = $("#example tbody");
+      for (var i = 0; i < 20; i++) {
+        var row = $("<tr>");
+        $.each(columns, function(ind, options) {
+          var col = $("<td>").html(r(options));
+          row.append(col);
+        });
+
+        // color code the row by the test result
+        if (row.html().indexOf("Passed") > 0) {
+          row.attr("class", "success");
+        }
+        else if (row.html().indexOf("Failed") > 0 ) {
+          row.attr("class", "danger");
+        }
+        else if (row.html().indexOf("Blocked") > 0) {
+          row.attr("class", "warning");
+        }
+        else {
+          row.attr("class", "info");
+        }
+
+        body.append(row);
+      }
+    </script>
+
+    <script type="text/javascript">
+      $(document).ready(function() {
+          $('.table td').tooltip({ container: 'body', placement: 'bottom', html: true});
+
+          var table = $('#example').dataTable( {
+              aoColumnDefs: [
+                { bSortable: false, aTargets: [0] }
+              ],
+              aaSorting: [[1, "desc"]],
+              bPaginate: false,
+            });
+
+          // this is the detailed page
+          function fnDetails(oTable, oRow) { 
+            var html = $("<div>");
+            var table = $("<table>");
+            var header = $("<thead>");
+            header.append($("<th>").html("Test Plan"));
+            header.append($("<th>").html("Version"));
+            header.append($("<th>").html("Date"));
+            header.append($("<th>").html("Test Result"));
+            header.append($("<th>").html("Log"));
+
+            var body = $("<tbody>");
+            for (var ver = 493; ver > 487; ver--) {
+              var row = $("<tr>");
+              row.append($("<td>").html($("td", oRow)[1].innerText));
+              row.append($("<td>").html("1.0.3." + ver));
+              row.append($("<td>").html('Apr 20, 2014 10:14 AM'));
+              row.append($("<td>").html('Passed'));
+              row.append($("<td>").html('Log'));
+              body.append(row);
+            }
+
+            table.append(header);
+            table.append(body);
+
+            html.append(table);
+            console.log(html.html());
+            return html;
+          }
+
+          $("#example tbody tr").on("click", function () {
+            if (table.fnIsOpen(this)) {
+              console.log("Closing window");
+              $("td:first", this).html('+');
+              table.fnClose(this);
+            }
+            else {
+              console.log("Opening window");
+              $("td:first", this).html('-');
+              table.fnOpen(this, fnDetails(table, this), 'details');
+            }
+          });
+      });
+    </script>
+
+    <br> <br> <br>
+    <h1>Weather</h1>
+    <h2>Checkin Suites</h2>
+
+  </body>
+</html>
