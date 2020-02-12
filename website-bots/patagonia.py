@@ -6,6 +6,7 @@ import json
 import logging
 import sys
 import time
+import socket
 
 LOGGING_FORMAT = '[%(asctime)-15s] %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, stream=sys.stdout, level=logging.INFO)
@@ -13,7 +14,7 @@ logging.basicConfig(format=LOGGING_FORMAT, stream=sys.stdout, level=logging.INFO
 mens_format_url = "https://www.patagonia.com/shop/web-specials-mens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XS"
 boys_format_url = "https://www.patagonia.com/shop/web-specials-kids-boys?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XXL"
 cache_file = "/Users/wc/Downloads/patagonia_cache.txt"
-slack_webhook_url = "https://hooks.slack.com/services/XXXX"
+slack_webhook_url = "https://hooks.slack.com/services/XXXXXX"
 
 window_size = 36
 total_limit = 200
@@ -81,7 +82,9 @@ def overwrite_to_cache_file(results):
 
 
 def post_to_slack(message):
-    return requests.post(url=slack_webhook_url, json={"text": message})
+    hostname = socket.gethostname()
+    username = "patagonia-" + hostname
+    return requests.post(url=slack_webhook_url, json={"text": message, "username": username, "icon_emoji": ":shirt:"})
 
 
 def run():
