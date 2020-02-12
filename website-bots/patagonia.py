@@ -13,8 +13,8 @@ logging.basicConfig(format=LOGGING_FORMAT, stream=sys.stdout, level=logging.INFO
 
 mens_format_url = "https://www.patagonia.com/shop/web-specials-mens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XS"
 boys_format_url = "https://www.patagonia.com/shop/web-specials-kids-boys?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XXL"
-cache_file = "/Users/wc/Downloads/patagonia_cache.txt"
-slack_webhook_url = "https://hooks.slack.com/services/XXXXXX"
+cache_file = ".patagonia_cache.txt"
+slack_webhook_url = "https://hooks.slack.com/services/XXXXX"
 
 window_size = 36
 total_limit = 200
@@ -94,12 +94,11 @@ def run():
         curr_results += scrape_patagonia(format_url)
     additions = find_new_additions(curr_results, prev_results)
     overwrite_to_cache_file(curr_results)
-    if additions:
-        logging.info("additions compared to last run:")
-        for row in additions:
-            message = "{} - {} - {}".format(row["title"], row["price"], row["link"])
-            logging.info(message)
-            post_to_slack(message)
+    if prev_results and additions:
+        result_to_str = lambda r: "{} - {} - {}".format(r["title"], r["price"], r["link"])
+        message = '\n'.join(map(result_to_str, additions))
+        logging.info("additions compared to last run:\n" + message)
+        post_to_slack(message)
     else:
         logging.info("no new additions")
 
