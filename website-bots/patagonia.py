@@ -18,7 +18,7 @@ slack_webhook_url = "https://hooks.slack.com/services/XXXXX"
 
 window_size = 36
 total_limit = 200
-check_interval_secs = 600
+check_interval_secs = 1200
 
 results = []
 
@@ -87,6 +87,9 @@ def post_to_slack(message):
     return requests.post(url=slack_webhook_url, json={"text": message, "username": username, "icon_emoji": ":shirt:"})
 
 
+def result_to_json_str(result):
+    return "<{}|{}> - {}".format(result["link"], result["title"], result["price"])
+
 def run():
     prev_results = read_cache_file()
     curr_results = []
@@ -95,8 +98,7 @@ def run():
     additions = find_new_additions(curr_results, prev_results)
     overwrite_to_cache_file(curr_results)
     if prev_results and additions:
-        result_to_str = lambda r: "{} - {} - {}".format(r["title"], r["price"], r["link"])
-        message = '\n'.join(map(result_to_str, additions))
+        message = '\n'.join(map(result_to_json_str, additions))
         logging.info("additions compared to last run:\n" + message)
         post_to_slack(message)
     else:
