@@ -1,0 +1,14 @@
+slack:
+  enabled: False
+  webhook_url: "https://hooks.slack.com/services/XXXXXXXXXXXX"
+
+logging:
+  level: INFO
+  format: '[%(asctime)-15s] %(message)s'
+
+crawler:
+  icebreaker-mens:
+    url: "https://www.patagonia.com/shop/web-specials-mens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XS"
+    params:
+      window_size: 10
+      start_pos: 10

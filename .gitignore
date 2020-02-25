@@ -1,8 +1,11 @@
 .DS_Store
 *.swp
+*.pyc
 tag-fb-photos/config.yml
 tag-fb-photos/userid_mapping.yml
 config.yml
 website-bots/bill.*
-website-bots/.*_cache.txt
+website-bots/.*.json
+website-bots/*-error.html
+website-bots/config.yaml
 interview-qs/*.out
