@@ -59,19 +59,30 @@ def overwrite_to_cache_file(cache_filename, results):
     with(open(cache_filename, 'w')) as f:
         f.write(json.dumps(results))
 
+def write_html(filename, requests_response):
+    with open(filename, 'wb') as f:
+        f.write(page.content)
+        logging.info(f'saved page as {filename}')
 
 def run(crawler_name, scraper_func):
     crawler_config = CONFIG.crawler[crawler_name]
     cache_filename = '.{}.json'.format(crawler_name)
 
     prev_results = read_cache_file(cache_filename)
-    curr_results = scraper_func()
+    curr_results = scraper_func(crawler_config)
     additions = find_new_additions(curr_results, prev_results)
     overwrite_to_cache_file(cache_filename, curr_results)
     if additions:
         logging.info("additions compared to last run:")
         for row in additions:
-            message = "{} - {} - {}".format(row["title"], row["price"], row["link"])
+            message = ''
+            if 'link' in row:
+                message = "<{}|{}> - {}".format(row["title"], row["link"], row["price"])
+            elif 'links' in row:
+                links = " ".join(["<{}|{}>".format(l['text'], l['href']) for l in row['links']])
+                message = "{} ({}) - {}".format(row['title'], links, row['price'])
+            else:
+                logging.error('cannot read results')
             post_to_slack(message)
     else:
         logging.info("no new additions")

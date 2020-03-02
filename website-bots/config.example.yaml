@@ -1,6 +1,6 @@
 slack:
   enabled: False
-  webhook_url: "https://hooks.slack.com/services/XXXXXXXXXXXX"
+  webhook_url: "https://hooks.slack.com/services/XXXXXXXX"
 
 logging:
   level: INFO
@@ -8,7 +8,18 @@ logging:
 
 crawler:
   icebreaker-mens:
-    url: "https://www.patagonia.com/shop/web-specials-mens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XS"
+    url: 'https://www.icebreaker.com/en-us/web-specials?prefn1=gender&prefn2=phClass&prefv3=S&prefv1=Mens&prefv2=Short%20Sleeve%20Tops&prefn3=size&format=ajax'
+  patagonia:
+    urls:
+      - "https://www.patagonia.com/shop/web-specials-mens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XS"
+      - "https://www.patagonia.com/shop/web-specials-kids-boys?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XXL"
+      - "https://www.patagonia.com/shop/web-specials-womens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=S%7CXS"
     params:
-      window_size: 10
-      start_pos: 10
+      window_size: 36
+      total_limit: 200
+    blacklist:
+      - 'Responsibili-Tee'
+      - 'T-Shirt'
+      - 'Boxers'
+      - 'Pants'
+      - 'Waders'
