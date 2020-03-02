@@ -11,10 +11,20 @@ import socket
 LOGGING_FORMAT = '[%(asctime)-15s] %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, stream=sys.stdout, level=logging.INFO)
 
-mens_format_url = "https://www.patagonia.com/shop/web-specials-mens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XS"
-boys_format_url = "https://www.patagonia.com/shop/web-specials-kids-boys?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XXL"
-cache_file = ".patagonia_cache.txt"
-slack_webhook_url = "https://hooks.slack.com/services/XXXXX"
+format_urls = [
+    "https://www.patagonia.com/shop/web-specials-mens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XS",
+    "https://www.patagonia.com/shop/web-specials-kids-boys?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=XXL",
+    "https://www.patagonia.com/shop/web-specials-womens?prefn1=size&sz={window_size}&start={start_pos}&format=page-element&prefv1=S%7CXS"
+]
+blacklist = [
+    'Responsibili-Tee',
+    'T-Shirt',
+    'Boxers',
+    'Pants',
+    'Waders'
+]
+cache_file = ".patagonia_cache.json"
+slack_webhook_url = "https://hooks.slack.com/services/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"
 
 window_size = 36
 total_limit = 200
@@ -35,20 +45,22 @@ def scrape_patagonia(base_url):
         url = base_url.format(window_size=window_size, start_pos=i)
         page = requests.get(url)
         tree = html.fromstring(page.content)
-        product_elements = tree.xpath('//*/div[@class="product-tile"]')
+        product_elements = tree.xpath('//*/div[@class="product-tile__meta-primary"]')
         try:
             for product in product_elements:
-                title = strip_non_ascii(product.xpath('.//*/div[@class="product-name"]/a/text()')[0])
-                link = product.xpath('.//*/div[@class="product-name"]/a/@href')[0]
-                price = product.xpath('.//*/div[@class="product-pricing"]/*/span/text()')
+                title = strip_non_ascii(product.xpath('.//*/h4/text()')[0])
+                link = 'https://www.patagonia.com' + product.xpath('.//*/a/@href')[0]
+                price = product.xpath('.//*/span[@class="value"]/@content')
                 price = price[-1] if price else "N/A"
                 data.append({"title": title, "link": link, "price": price})
+            logging.debug("fetched {} for {}".format(len(title), url))
         except IndexError as e:
             logging.error(e)
             with open('patagonia-error.html', 'w') as f:
                 f.write(page.content)
             logging.info("saved page as patagonia-error.html")
-        logging.debug("fetched {} for {}".format(len(title), url))
+            post_to_slack('error encountered for patagonia')
+            sys.exit(1)
         if not product_elements:
             break
     return data
@@ -59,7 +71,7 @@ def find_new_additions(curr_results, prev_results):
     additions = []
     for curr_row in curr_results:
         curr_title = curr_row["title"]
-        if curr_title not in prev_titles:
+        if curr_title not in prev_titles and all([b not in curr_title for b in blacklist]):
             additions.append(curr_row)
     return additions
 
@@ -93,7 +105,7 @@ def result_to_json_str(result):
 def run():
     prev_results = read_cache_file()
     curr_results = []
-    for format_url in [mens_format_url, boys_format_url]:
+    for format_url in format_urls:
         curr_results += scrape_patagonia(format_url)
     additions = find_new_additions(curr_results, prev_results)
     overwrite_to_cache_file(curr_results)
