@@ -28,8 +28,8 @@ def scrape_patagonia(cfg):
                         continue
                     price = product.xpath('.//*/span[@class="value"]/@content')
                     price = price[-1] if price else "N/A"
-                    opt_text = product.xpath('//div[@data-color]/@data-color')
-                    opt_links = product.xpath('//div[@data-color]/a/@href')
+                    opt_text = product.xpath('.//div[@data-color]/@data-color')
+                    opt_links = product.xpath('.//div[@data-color]/a/@href')
                     href_prefix = 'https://www.patagonia.com'
                     links = [{'href': href_prefix + href, 'text': text} for href, text in zip(opt_links, opt_text)]
                     data.append({"title": title, "links": links, "price": price})

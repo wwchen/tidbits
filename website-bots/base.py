@@ -74,15 +74,27 @@ def run(crawler_name, scraper_func):
     overwrite_to_cache_file(cache_filename, curr_results)
     if additions:
         logging.info("additions compared to last run:")
+        message_lines = []
         for row in additions:
             message = ''
             if 'link' in row:
-                message = "<{}|{}> - {}".format(row["title"], row["link"], row["price"])
+                message += "<{}|{}> - {}".format(row["link"], row["title"], row["price"])
             elif 'links' in row:
-                links = " ".join(["<{}|{}>".format(l['text'], l['href']) for l in row['links']])
-                message = "{} ({}) - {}".format(row['title'], links, row['price'])
+                links = ", ".join(["<{}|{}>".format(l['href'], l['text']) for l in row['links']])
+                message += "{} ({}) - {}".format(row['title'], links, row['price'])
             else:
                 logging.error('cannot read results')
-            post_to_slack(message)
+            message_lines.append(message)
+        message = ''
+        char_count = 0
+        for lines in message_lines:
+            lines += '\n'
+            if char_count + len(lines) > 40000:
+                # flush
+                post_to_slack(message)
+                message = ''
+                char_count = 0
+            message += lines
+            char_count += len(lines)
     else:
         logging.info("no new additions")

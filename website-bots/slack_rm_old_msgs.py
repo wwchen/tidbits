@@ -7,9 +7,9 @@ import sys
 
 # for token: https://my.slack.com/customize ->
 # window.prompt("your api token is: ", TS.boot_data.api_token)
-TOKEN = 'XXXXXXXXXX'
+TOKEN = ''
 CHANNEL = '#website-bots'
-DATE_BEFORE = '2/18/2020'
+DATE_BEFORE = '3/1/2020'
 
 LOGGING_FORMAT = '[%(asctime)-15s] %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, stream=sys.stdout, level=logging.INFO)
@@ -21,13 +21,13 @@ def get_message_log(page_id=1):
         url='https://slack.com/api/search.messages',
         params={
             'token': TOKEN,
-            'query': 'in:{} before:{} from:patagonia*'.format(CHANNEL, DATE_BEFORE),
+            'query': 'in:{} before:{} from:crawler'.format(CHANNEL, DATE_BEFORE),
             'sort': 'timestamp',
             # 'count': 10,
             'page': page_id
         })
     resp = json.loads(resp.content)
-    print resp
+    logging.debug(resp)
     if not resp['ok']:
         logging.error("failed to search slack messages: {}".format(resp))
         return
@@ -50,13 +50,15 @@ def rm_message(channel, ts):
 
 page_i = 1
 while True:
-    messages, page_count = get_message_log()
+    messages, page_count = get_message_log(page_i)
     logging.info('currently on page {}'.format(page_i))
     for message in messages:
         logging.info('deleting message: "{}"'.format(message[2]))
         rm_resp = json.loads(rm_message(message[0], message[1]))
         if not rm_resp['ok']:
+            logging.error(rm_resp)
             sys.exit(1)
-    if page_i == page_count:
+    if page_i == page_count or not messages:
+        logging.info('page count hit or no more messages')
         break
     page_i += 1
