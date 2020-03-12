@@ -37,7 +37,7 @@ def scrape_patagonia(cfg):
             except IndexError as e:
                 logging.error(e)
                 write_html('patagonia-error.html', page)
-                post_to_slack('error encountered for patagonia')
+                post_to_slack('error encountered for patagonia', cfg.slack)
                 sys.exit(1)
             if not product_elements:
                 break

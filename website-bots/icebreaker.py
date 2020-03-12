@@ -11,8 +11,6 @@ CRAWLER = 'icebreaker-mens'
 
 check_interval_secs = 1200
 
-site = 'icebreaker'
-
 
 def scrape_icebreaker(cfg):
     data = []

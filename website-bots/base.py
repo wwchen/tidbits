@@ -18,15 +18,15 @@ def strip_non_ascii(string):
     return ''.join(stripped)
 
 
-def post_to_slack(message):
+def post_to_slack(message, slack_cfg=None):
     slack_webhook_url = CONFIG.slack.webhook_url
     payload = {
         'text': message,
         'username': 'crawler',
         'icon_emoji': ':shirt:',
     }
-    if CRAWLER in CONFIG:
-        payload.update(CONFIG[CRAWLER])
+    if slack_cfg:
+        payload.update(slack_cfg)
     if CONFIG.slack.enabled:
         return requests.post(url=slack_webhook_url, json=payload)
     else:
@@ -78,12 +78,13 @@ def run(crawler_name, scraper_func):
         for row in additions:
             message = ''
             if 'link' in row:
-                message += "<{}|{}> - {}".format(row["link"], row["title"], row["price"])
+                message = "<{}|{}> - {}".format(row["link"], row["title"], row["price"])
             elif 'links' in row:
                 links = ", ".join(["<{}|{}>".format(l['href'], l['text']) for l in row['links']])
-                message += "{} ({}) - {}".format(row['title'], links, row['price'])
+                message = "{} ({}) - {}".format(row['title'], links, row['price'])
             else:
                 logging.error('cannot read results')
+            logging.info(message)
             message_lines.append(message)
         message = ''
         char_count = 0
@@ -91,10 +92,11 @@ def run(crawler_name, scraper_func):
             lines += '\n'
             if char_count + len(lines) > 40000:
                 # flush
-                post_to_slack(message)
+                post_to_slack(message, crawler_config.slack)
                 message = ''
                 char_count = 0
             message += lines
             char_count += len(lines)
+        post_to_slack(message, crawler_config.slack)
     else:
         logging.info("no new additions")
