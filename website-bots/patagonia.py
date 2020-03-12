@@ -9,9 +9,9 @@ import sys
 import time
 import socket
 
-check_interval_secs = 1200
-
 CRAWLER = 'patagonia'
+CHECK_INTERVAL_SECS = 1200
+
 
 def scrape_patagonia(cfg):
     data = []
@@ -24,8 +24,6 @@ def scrape_patagonia(cfg):
             try:
                 for product in product_elements:
                     title = strip_non_ascii(product.xpath('.//*/h4/text()')[0])
-                    if any([b in title for b in cfg.blacklist]):
-                        continue
                     price = product.xpath('.//*/span[@class="value"]/@content')
                     price = price[-1] if price else "N/A"
                     opt_text = product.xpath('.//div[@data-color]/@data-color')
@@ -47,5 +45,5 @@ def scrape_patagonia(cfg):
 if __name__ == "__main__":
     while True:
         run(CRAWLER, scrape_patagonia)
-        time.sleep(check_interval_secs)
+        time.sleep(CHECK_INTERVAL_SECS)
 

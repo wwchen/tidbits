@@ -8,8 +8,7 @@ import time
 
 
 CRAWLER = 'icebreaker-mens'
-
-check_interval_secs = 1200
+CHECK_INTERVAL_SECS = 1200
 
 
 def scrape_icebreaker(cfg):
@@ -33,4 +32,4 @@ def scrape_icebreaker(cfg):
 if __name__ == "__main__":
     while True:
         run(CRAWLER, scrape_icebreaker)
-        time.sleep(check_interval_secs)
+        time.sleep(CHECK_INTERVAL_SECS)

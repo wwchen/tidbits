@@ -7,8 +7,6 @@ import json
 
 CONFIG = Box.from_yaml(filename='config.yaml')
 
-CRAWLER = 'base'
-
 logging.basicConfig(format=CONFIG.logging.format, stream=sys.stdout, level=CONFIG.logging.level)
 
 
@@ -70,12 +68,20 @@ def run(crawler_name, scraper_func):
 
     prev_results = read_cache_file(cache_filename)
     curr_results = scraper_func(crawler_config)
+    if not curr_results:
+        message = "didn't scape for anything, page request error?"
+        logging.error(message)
+        post_to_slack(message, crawler_config.slack)
     additions = find_new_additions(curr_results, prev_results)
     overwrite_to_cache_file(cache_filename, curr_results)
     if additions:
         logging.info("additions compared to last run:")
         message_lines = []
         for row in additions:
+            if 'whitelist' in crawler_config and not any([b.lower() in title.lower() for b in crawler_config.whitelist]):
+                continue
+            if 'blacklist' in crawler_config and any([b.lower() in title.lower() for b in crawler_config.blacklist]):
+                continue
             message = ''
             if 'link' in row:
                 message = "<{}|{}> - {}".format(row["link"], row["title"], row["price"])
